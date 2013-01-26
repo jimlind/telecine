@@ -1,10 +1,20 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
+from ctypes import sizeof as ctypesizeof
+from ctypes import c_voidp as ctypevoid
 from datetime import *
-from subprocess import call
+from os import open as osopen
+from os import O_RDONLY as osreadonly
+from os import read as osread
 from re import search
+from struct import pack as structpack
+from struct import unpack_from as structunpack
+from subprocess import call
+from subprocess import CalledProcessError as callerror
+from subprocess import check_output as callout
 
+'''
 import os
 import subprocess
 import struct
@@ -12,6 +22,7 @@ import sys
 import time
 import locale
 import ctypes
+'''
 
 '''
 Get mouse name
@@ -23,22 +34,8 @@ $ ls /dev/v4l/by-id/
 mouse_name = 'PS/2+USB Mouse'
 camera_path = '/dev/v4l/by-id/usb-046d_0821_FE3FA0E0-video-index0'
 
-
-''' Map a mouse boutton to a external sensor (label) '''
-mouse_key_dic = {
-	272: "Stock",   # Left button
-	273: "Stock 2" ,  # Right button
-	274: "Stock 3"  , # middle button
-} 
-
-''' Map mouse buttons events '''
-mouse_event_dic = {
-	0: "open", # button release => Door Opened
-	1: "close", # button press => Door closed
-} 
-
 ''' Detect architecture for InputEvent '''
-__voidptrsize = ctypes.sizeof(ctypes.c_voidp)
+__voidptrsize = ctypesizeof(ctypevoid)
 _64bit = (__voidptrsize == 8)
 _32bit = (__voidptrsize == 4)
 if _64bit:
@@ -71,15 +68,15 @@ class InputEvent(object):
         return self.time + (self.nanotime / 1000000.0)
     def unpack(self, buf):
         if _64bit:
-            self.time, t1, self.nanotime, t3, self.etype, self.evalue = struct.unpack_from(INPUTEVENT_STRUCT, buf)
+            self.time, n0, self.nanotime, n1, n2, self.etype, self.evalue = structunpack(INPUTEVENT_STRUCT, buf)
         elif _32bit:
-            self.time, self.nanotime, self.etype, self.evalue = struct.unpack_from(INPUTEVENT_STRUCT, buf)
+            self.time, self.nanotime, n0, self.etype, self.evalue = structunpack(INPUTEVENT_STRUCT, buf)
         return self
     def pack(self):
         if _64bit:
-            return struct.pack(INPUTEVENT_STRUCT, self.time, 0, self.nanotime, 0, self.etype, self.evalue)
+            return structpack(INPUTEVENT_STRUCT, self.time, 0, self.nanotime, 0, self.etype, self.evalue)
         elif _32bit:
-            return struct.pack(INPUTEVENT_STRUCT, self.time, self.nanotime, self.etype, self.evalue)
+            return structpack(INPUTEVENT_STRUCT, self.time, self.nanotime, self.etype, self.evalue)
     def __repr__(self):
         return "<InputEvent type=%r, value=%r>" % (self.etype, self.evalue)
     def __str__(self):
@@ -112,8 +109,8 @@ def find_event_id(name):
 ''' Finds the bound ID for the V4L device '''
 def find_video_binding(string):
     try:
-        output = subprocess.check_output(["file", "-b",string])
-    except subprocess.CalledProcessError as e:
+        output = callout(["file", "-b",string])
+    except callerror as e:
         return False
 
     results = search("symbolic link .+/(.+)'", output)
@@ -122,8 +119,11 @@ def find_video_binding(string):
     else:
         return False
 
-def receive(event):
-    if event.etype == 1 and event.evalue == 0:
+''' Recieves InputEvents from the buffer ''' 
+def receive(event, video_id):
+    if event.etype == 272 and event.evalue == 0:
+	print "Let's Go!"	
+'''
 	print "Reset UVC Controls"
 	call(["uvcdynctrl", "-d", "video1", "-L", "/home/jlind/8mm/settings/reset.txt"])
 	print "Set UVC Controls"	
@@ -138,53 +138,40 @@ def receive(event):
  		stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 	call(["chown", "jlind", image_prefix + "-1.jpg"])
 	call(["chmod", "777", image_prefix + "-1.jpg"])
-
-
-
+'''
 
 ''' Get the party started '''
 if __name__ == '__main__':
-    mouse_event = find_event_id(mouse_name)
     video_id = find_video_binding(camera_path)
+    if video_id:
+        video_settings = {
+            "Brightness": "128",
+            "Contrast": "32",
+            "Saturation": "32",
+            "White Balance Temperature, Auto": "0",
+            "Gain": "76",
+            "Power Line Frequency": "2",
+            "White Balance Temperature": "3504",
+            "Sharpness": "72",
+            "Backlight Compensation": "0",
+            "Exposure (Absolute)": "664",
+            "Exposure, Auto Priority": "0",
+            "Focus (absolute)": "0",
+            "Focus, Auto": "0",
+            "Zoom, Absolute": "1",
+        }
+        for key, value in video_settings.iteritems():
+            call(["uvcdynctrl", "-d", video_id, "-s", key, value])
 
-    if mouse_event and video_id:
-	print "Everything is shiney."
+    mouse_event = find_event_id(mouse_name) 
+    if mouse_event:
+        device = "/dev/input/" + mouse_event
+        fileno = osopen(device, osreadonly)
+        buf = ""
+        while True:
+           buf += osread(fileno, 4096)
+           while len(buf) >= INPUTEVENT_STRUCT_SIZE:
+               receive(InputEvent(buf[:INPUTEVENT_STRUCT_SIZE]), video_id)
+               buf = buf[INPUTEVENT_STRUCT_SIZE:]
     else:
         print "Something is rotten in the state of Denmark."
-"""
-    
-
-	mouse_event = find_event_id(mouse_name)
-	print mouse_event	
-	video_id = find_video_binding(camera_path)
-	print video_id	 
-
-	event_name = None
-
-	if event_name != None: 
-		device = "/dev/input/" + event_name
-		print "Mouse found ! Use event file %s" % device
-		''' Disable mouse from X11 '''
-	 	os.system('xinput set-int-prop '+ xinput_id + ' "Device Enabled" 8 0' )
-	
-		''' '''
-		fileno = os.open(device, os.O_RDONLY)
-		buf = ""
-		""
-		Read up to 4096 bytes from the input device, and generate an
-		InputEvent for every 24 (or 16) bytes (sizeof(struct input_event))
-		""
-		while True:
-			buf += os.read(fileno, 4096)
-			while len(buf) >= INPUTEVENT_STRUCT_SIZE:
-				receive(InputEvent(buf[:INPUTEVENT_STRUCT_SIZE]))
-				buf = buf[INPUTEVENT_STRUCT_SIZE:]
-
-	else:
-		print "Unable to find defined mouse. Bye."
-
-	print "reset"
-	call(["uvcdynctrl", "uvcdynctrl -d video1 -L /home/jlind/8mm/settings/reset.txt"])
-	print "controls"	
-	call(["uvcdynctrl", "uvcdynctrl -d video1 -L /home/jlind/8mm/settings/controls.txt"])
-"""
