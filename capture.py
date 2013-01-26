@@ -13,16 +13,8 @@ from struct import unpack_from as structunpack
 from subprocess import call
 from subprocess import CalledProcessError as callerror
 from subprocess import check_output as callout
-
-'''
-import os
-import subprocess
-import struct
-import sys
+from subprocess import PIPE as pipe
 import time
-import locale
-import ctypes
-'''
 
 '''
 Get mouse name
@@ -119,29 +111,33 @@ def find_video_binding(string):
     else:
         return False
 
+
+
 ''' Recieves InputEvents from the buffer ''' 
 def receive(event, video_id):
     if event.etype == 272 and event.evalue == 0:
-	print "Let's Go!"	
-'''
-	print "Reset UVC Controls"
-	call(["uvcdynctrl", "-d", "video1", "-L", "/home/jlind/8mm/settings/reset.txt"])
-	print "Set UVC Controls"	
-	call(["uvcdynctrl", "-d", "video1", "-L", "/home/jlind/8mm/settings/controls.txt"])
+        print "Capturing Frame"
+        ''' Reseting focus is needed before every shot '''
+        call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "0"])
+        call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "153"])
+        
+        image_prefix = "/home/jlind/8mm/cap-" + str(int(time.time()))
+        video_path = "/dev/" + video_id
+        call(["guvcview", "-s", "2048x1536", "-i", "frames/c.jpg", \
+            "-m", "1", "-c", "1", "-d", video_path, \
+            "--exit_on_close", "--no_display"], stdout=pipe, stderr=pipe)
+        stamp = str(int(time.time()))
+        ''' TODO: NOT ALWAYS OUTPUT AS c-1.jpg - It increments '''
+        call(["mv", "frames/c-1.jpg", "frames/" + stamp + ".jpg"])
+        call(["chmod", "777", "frames/" + stamp + ".jpg"])
 
-	print "Capturing..."
-	image_prefix = "/home/jlind/8mm/cap-" + str(int(time.time()))
-	print image_prefix
-	call(["guvcview", "-s", "2048x1536", "-i", image_prefix + ".jpg", \
-		"-m", "1", "-c", "1", "-d", "/dev/video1", \
-		"--exit_on_close", "--no_display"], \
- 		stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-	call(["chown", "jlind", image_prefix + "-1.jpg"])
-	call(["chmod", "777", image_prefix + "-1.jpg"])
-'''
+
 
 ''' Get the party started '''
 if __name__ == '__main__':
+    call(["mkdir", "frames"], stdout=pipe, stderr=pipe)
+    call(["chmod", "777", "frames"], stdout=pipe, stderr=pipe)
+
     video_id = find_video_binding(camera_path)
     if video_id:
         video_settings = {
@@ -156,7 +152,6 @@ if __name__ == '__main__':
             "Backlight Compensation": "0",
             "Exposure (Absolute)": "664",
             "Exposure, Auto Priority": "0",
-            "Focus (absolute)": "0",
             "Focus, Auto": "0",
             "Zoom, Absolute": "1",
         }
