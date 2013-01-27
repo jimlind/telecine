@@ -4,6 +4,7 @@
 from ctypes import sizeof as ctypesizeof
 from ctypes import c_voidp as ctypevoid
 from datetime import *
+from glob import glob
 from os import open as osopen
 from os import O_RDONLY as osreadonly
 from os import read as osread
@@ -14,6 +15,7 @@ from subprocess import call
 from subprocess import CalledProcessError as callerror
 from subprocess import check_output as callout
 from subprocess import PIPE as pipe
+
 import time
 
 '''
@@ -101,7 +103,7 @@ def find_event_id(name):
 ''' Finds the bound ID for the V4L device '''
 def find_video_binding(string):
     try:
-        output = callout(["file", "-b",string])
+        output = callout(["file", "-b", string])
     except callerror as e:
         return False
 
@@ -121,15 +123,19 @@ def receive(event, video_id):
         call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "0"])
         call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "153"])
         
-        image_prefix = "/home/jlind/8mm/cap-" + str(int(time.time()))
         video_path = "/dev/" + video_id
         call(["guvcview", "-s", "2048x1536", "-i", "frames/c.jpg", \
             "-m", "1", "-c", "1", "-d", video_path, \
             "--exit_on_close", "--no_display"], stdout=pipe, stderr=pipe)
-        stamp = str(int(time.time()))
-        ''' TODO: NOT ALWAYS OUTPUT AS c-1.jpg - It increments '''
-        call(["mv", "frames/c-1.jpg", "frames/" + stamp + ".jpg"])
-        call(["chmod", "777", "frames/" + stamp + ".jpg"])
+        
+        filename = "frames/c-1.jpg"
+        files = glob("frames/c*.jpg")
+        if files:
+            filename = files[0]
+
+        newfile = "frames/" + str(int(time.time())) + ".jpg"
+        call(["mv", filename, newfile])
+        call(["chmod", "777", newfile])
 
 
 
