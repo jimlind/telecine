@@ -88,7 +88,6 @@ def disable_input(name):
     devices = callout(["xinput", "--list"]);
     results = re.search(re.escape(name)+"\s+id=([0-9]*)", devices)
     if results:
-        print results.group(1)
         call(["xinput", "set-int-prop", results.group(1), "Device Enabled", "8", "0"])
 
 ''' Finds the Event ID for the device name input '''
@@ -126,7 +125,6 @@ def find_video_binding(string):
 ''' Recieves InputEvents from the buffer ''' 
 def receive(event, video_id):
     if event.etype == 272 and event.evalue == 0:
-        print "Capturing Frame"
         ''' Reseting focus is needed before every shot '''
         call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "0"])
         call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "153"])
@@ -144,7 +142,7 @@ def receive(event, video_id):
         newfile = "frames/" + str(int(time.time())) + ".jpg"
         call(["mv", filename, newfile])
         call(["chmod", "777", newfile])
-
+        print "Wrote " + newfile
 
 
 ''' Get the party started '''
