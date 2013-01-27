@@ -3,12 +3,9 @@
 
 from ctypes import sizeof as ctypesizeof
 from ctypes import c_voidp as ctypevoid
-from datetime import *
-from glob import glob
 from os import open as osopen
 from os import O_RDONLY as osreadonly
 from os import read as osread
-from re import search
 from struct import pack as structpack
 from struct import unpack_from as structunpack
 from subprocess import call
@@ -16,13 +13,18 @@ from subprocess import CalledProcessError as callerror
 from subprocess import check_output as callout
 from subprocess import PIPE as pipe
 
+import glob
+import re
 import time
 
 '''
-Get mouse name
+Since I use external USB devices I just plug and unplug after running
+the commands to identify my devices
+
+Get mouse_name
 $ xinput list | grep "slave  pointer"
 
-Get camera id
+Get camera_path
 $ ls /dev/v4l/by-id/
  '''
 mouse_name = 'PS/2+USB Mouse'
@@ -39,7 +41,7 @@ elif _32bit: # 32bit
     INPUTEVENT_STRUCT = "=iiHHi"
     INPUTEVENT_STRUCT_SIZE = 16
 
-''' I don't understand what this is doing exactly. I trust it to work '''
+''' I don't understand what this Class is doing exactly. I trust it to work '''
 class InputEvent(object):
     __slots__ = ('etype', 'evalue', 'time', 'nanotime')
     def __init__(self, buf=None):
@@ -81,7 +83,13 @@ class InputEvent(object):
         return self.etype == other.etype and self.evalue == other.evalue
 ''' end class InputEvent '''
 
-
+''' Disables the input device from affecting X Windows '''
+def disable_input(name):
+    devices = callout(["xinput", "--list"]);
+    results = re.search(re.escape(name)+"\s+id=([0-9]*)", devices)
+    if results:
+        print results.group(1)
+        call(["xinput", "set-int-prop", results.group(1), "Device Enabled", "8", "0"])
 
 ''' Finds the Event ID for the device name input '''
 def find_event_id(name):
@@ -107,7 +115,7 @@ def find_video_binding(string):
     except callerror as e:
         return False
 
-    results = search("symbolic link .+/(.+)'", output)
+    results = re.search("symbolic link .+/(.+)'", output)
     if results:
 	return results.group(1)
     else:
@@ -129,7 +137,7 @@ def receive(event, video_id):
             "--exit_on_close", "--no_display"], stdout=pipe, stderr=pipe)
         
         filename = "frames/c-1.jpg"
-        files = glob("frames/c*.jpg")
+        files = glob.glob("frames/c*.jpg")
         if files:
             filename = files[0]
 
@@ -156,6 +164,7 @@ if __name__ == '__main__':
             "White Balance Temperature": "3504",
             "Sharpness": "72",
             "Backlight Compensation": "0",
+            "Exposure, Auto": "1",
             "Exposure (Absolute)": "664",
             "Exposure, Auto Priority": "0",
             "Focus, Auto": "0",
@@ -164,6 +173,7 @@ if __name__ == '__main__':
         for key, value in video_settings.iteritems():
             call(["uvcdynctrl", "-d", video_id, "-s", key, value])
 
+    disable_input(mouse_name)
     mouse_event = find_event_id(mouse_name) 
     if mouse_event:
         device = "/dev/input/" + mouse_event
