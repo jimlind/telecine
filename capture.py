@@ -147,7 +147,7 @@ def receive(event, video_id):
         if files:
             filename = files[0]
 
-        newfile = "frames/" + str(int(time.time())) + ".jpg"
+        newfile = "frames/" + str(this_time) + ".jpg"
         call(["mv", filename, newfile])
         call(["chmod", "777", newfile])
         print "Wrote " + newfile
