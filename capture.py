@@ -29,6 +29,7 @@ $ ls /dev/v4l/by-id/
  '''
 mouse_name = 'PS/2+USB Mouse'
 camera_path = '/dev/v4l/by-id/usb-046d_0821_FE3FA0E0-video-index0'
+this_time = 0
 
 ''' Detect architecture for InputEvent '''
 __voidptrsize = ctypesizeof(ctypevoid)
@@ -124,7 +125,14 @@ def find_video_binding(string):
 
 ''' Recieves InputEvents from the buffer ''' 
 def receive(event, video_id):
+    global this_time
     if event.etype == 272 and event.evalue == 0:
+        if event.time < (this_time + 1):
+            print "Caught Extra Event"
+            return False
+
+        this_time = event.time
+        
         ''' Reseting focus is needed before every shot '''
         call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "0"])
         call(["uvcdynctrl", "-d", video_id, "-s", "Focus (absolute)", "153"])
