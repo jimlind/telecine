@@ -13,8 +13,11 @@ from subprocess import CalledProcessError as callerror
 from subprocess import check_output as callout
 from subprocess import PIPE as pipe
 
+import decimal
 import glob
 import re
+import serial
+import subprocess
 import time
 
 '''
@@ -29,7 +32,11 @@ $ ls /dev/v4l/by-id/
  '''
 mouse_name = 'PS/2+USB Mouse'
 camera_path = '/dev/v4l/by-id/usb-046d_0821_FE3FA0E0-video-index0'
+arduino_path = '/dev/ttyACM0'
+
 this_time = 0
+max_diff = 1400000
+arduino = serial.Serial(arduino_path, 9600)
 
 ''' Detect architecture for InputEvent '''
 __voidptrsize = ctypesizeof(ctypevoid)
@@ -126,11 +133,15 @@ def find_video_binding(string):
 ''' Recieves InputEvents from the buffer ''' 
 def receive(event, video_id):
     global this_time
+    
     if event.etype == 272 and event.evalue == 0:
-        if event.time < (this_time + 1):
+        if event.time < (this_time + 2):
             print "Caught Extra Event"
             return False
 
+        ''' Pause the motor '''
+        arduino.write('P')
+        
         this_time = event.time
         
         ''' Reseting focus is needed before every shot '''
@@ -151,6 +162,17 @@ def receive(event, video_id):
         call(["mv", filename, newfile])
         call(["chmod", "777", newfile])
         print "Wrote " + newfile
+        
+        out = subprocess.check_output(["compare", "-metric", "AE", \
+            "blank.jpg", newfile, "/dev/null"], stderr=subprocess.STDOUT)
+        pixel_diff = decimal.Decimal(out.strip())
+        if pixel_diff < max_diff:
+            print "Detected Blank Frame"
+            arduino.write('E')
+            return False
+
+        ''' Resume the motor '''
+        arduino.write('R')
 
 
 ''' Get the party started '''

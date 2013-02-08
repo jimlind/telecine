@@ -14,6 +14,7 @@ How I Use It
 
 Install Ubuntu 12.10
 Install guvcview
+Install imagemagick
 Install python
 
 Plugin Camera and Mouse
