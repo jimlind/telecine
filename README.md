@@ -21,4 +21,6 @@ Plugin Camera and Mouse
 
 sudo python capture.py
 
+It writes files to the ./frames directory.
+
 Control+c to stop the script

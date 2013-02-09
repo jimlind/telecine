@@ -1,7 +1,8 @@
+int btnA  = 6;
 int relay = 8;
 int btnB  = 10;
 int led   = 12;
-int board = 13;
+
 char msg = ' ';
 
 boolean override = false;
@@ -11,8 +12,8 @@ boolean errorLED = false;
 void setup() {
   pinMode(relay, OUTPUT);
   pinMode(led,   OUTPUT);
-  pinMode(board, OUTPUT);
   
+  pinMode(btnA,  INPUT);
   pinMode(btnB,  INPUT);
   
   Serial.begin(9600);
@@ -43,6 +44,11 @@ void loop() {
     } else {
       digitalWrite(relay, HIGH);
     }
+  }
+  
+  if (digitalRead(btnA) == HIGH) {
+     Serial.println("T");
+     delay(500);
   }
   
   if (digitalRead(btnB) == HIGH) {
