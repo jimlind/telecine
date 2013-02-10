@@ -61,16 +61,31 @@ def triggerEvent():
             "--exit_on_close", "--no_display"], stdout=pipe, stderr=pipe)
     
     ''' Find file '''
-    filename = "frames/c-1.jpg"
+    filename = None
     files = glob.glob("frames/c*.jpg")
-    if files:
+    filesLength = len(files)
+    if filesLength == 1:
         filename = files[0]
+    elif filesLength > 1:
+        print "Too many frames written"
+        arduino.write('E')
+        return False
+    else:
+        print "No frames written"
+        arduino.write('E')
+        return False
     
     ''' Rename file '''
     newfile = "frames/" + timestamp + ".jpg"
     call(["mv", filename, newfile])
     call(["chmod", "777", newfile])
-    print "Wrote " + newfile
+    confirmation = len(glob.glob(newfile))
+    if confirmation == 1:
+        print "Wrote " + newfile
+    else:
+        print "Problem writing " + newfile
+        arduino.write('E')
+        return False
     
     ''' Check if the captured frame is blank '''
     out = subprocess.check_output(["compare", "-metric", "AE", \
